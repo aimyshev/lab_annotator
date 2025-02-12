@@ -62,6 +62,7 @@ class AnnotationManager:
         try:
             with self.db_manager.transaction() as conn:
                 cleanup_query = text("""
+                    SET TIME ZONE 'UTC-5';
                     DELETE FROM public.annotations 
                     WHERE status = :status 
                         AND time::timestamp < NOW() - :threshold * INTERVAL '1 minute'
