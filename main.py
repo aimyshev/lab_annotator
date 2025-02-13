@@ -367,29 +367,7 @@ class LabAnalysisUI:
         doc_id, document_body = document
         self.display_document(document_body)
         
-        # First, fetch all table data
-        tables_with_data = []
-        empty_tables = []
-        
         for header_table, values_table in self.ANALYSIS_TABLES.items():
-            table_key = f"table_data_{header_table}"
-            if st.session_state[table_key] is None:
-                header_df, values_df = self.data_manager.fetch_lab_data(doc_id, header_table, values_table)
-                combined_df = self.prepare_combined_data(header_df, values_df)
-                st.session_state[table_key] = combined_df
-            
-            # Sort tables based on whether they have data
-            if not st.session_state[table_key].empty:
-                tables_with_data.append((header_table, values_table))
-            else:
-                empty_tables.append((header_table, values_table))
-        
-        # Display tables with data first
-        for header_table, values_table in tables_with_data:
-            self.handle_table_operations(header_table, values_table, doc_id)
-        
-        # Then display empty tables
-        for header_table, values_table in empty_tables:
             self.handle_table_operations(header_table, values_table, doc_id)
             
         self.show_navigation_controls(doc_id)
