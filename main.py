@@ -56,6 +56,7 @@ class LabAnalysisUI:
         
     def cleanup_session_state(self):
         st.session_state.current_doc_id = None
+        st.session_state.document_text = None
         for table_key in [f"table_data_{table}" for table in self.ANALYSIS_TABLES]:
             st.session_state[table_key] = None
 
@@ -255,6 +256,8 @@ class LabAnalysisUI:
             
             doc_id, document_body = document
             st.session_state.current_doc_id = doc_id
+            st.session_state.document_text = document_body
+
             return doc_id, document_body
             
         except Exception as e:
@@ -268,7 +271,7 @@ class LabAnalysisUI:
             st.sidebar.text_area(
                 "Raw Text",
                 value=document_body,
-                height=200,
+                height=500,
                 disabled=True,
                 key="document_text"
             )
