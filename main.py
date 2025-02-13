@@ -17,13 +17,17 @@ class LabAnalysisUI:
     """Main UI class for Lab Analysis Application"""
     
     ANALYSIS_TABLES = {
+        "alcohol_test": "alcohol_test_values",
         "biochem_blood_test": "biochem_blood_test_values",
         "blood_electrolytes": "blood_electrolytes_values",
         "blood_sugar": "blood_sugar_values",
         "blood_test": "blood_test_values",
+        "blood_type": "blood_type_values",
         "cerebrospinal_fluid_analysis": "cerebrospinal_fluid_analysis_values",
         "coagulogram": "coagulogram_values",
         "fecal_analysis": "fecal_analysis_values",
+        "hematocrit": "hematocrit_values",
+        "hiv_test": "hiv_test_values",
         "malaria_test": "malaria_test_values",
         "sputum_analysis": "sputum_analysis_values",
         "syphilis_test": "syphilis_test_values",
@@ -261,7 +265,7 @@ class LabAnalysisUI:
     def display_document(self, document_body: str):
         """Display the document text with formatting"""
         with st.expander("Raw Lab Text", expanded=True):
-            st.text_area(
+            st.sidebar.text_area(
                 "Raw Text",
                 value=document_body,
                 height=200,
@@ -313,11 +317,9 @@ class LabAnalysisUI:
                     }
                 )
 
-                # Update session state
-                st.session_state[table_key] = edited_df
-
                 if st.button("💾 Save Changes", key=f"save_{header_table}"):
                     try:
+                        st.session_state[table_key] = edited_df
                         self.save_table_data(
                             header_table,
                             values_table, 
@@ -365,7 +367,29 @@ class LabAnalysisUI:
         doc_id, document_body = document
         self.display_document(document_body)
         
+        # First, fetch all table data
+        tables_with_data = []
+        empty_tables = []
+        
         for header_table, values_table in self.ANALYSIS_TABLES.items():
+            table_key = f"table_data_{header_table}"
+            if st.session_state[table_key] is None:
+                header_df, values_df = self.data_manager.fetch_lab_data(doc_id, header_table, values_table)
+                combined_df = self.prepare_combined_data(header_df, values_df)
+                st.session_state[table_key] = combined_df
+            
+            # Sort tables based on whether they have data
+            if not st.session_state[table_key].empty:
+                tables_with_data.append((header_table, values_table))
+            else:
+                empty_tables.append((header_table, values_table))
+        
+        # Display tables with data first
+        for header_table, values_table in tables_with_data:
+            self.handle_table_operations(header_table, values_table, doc_id)
+        
+        # Then display empty tables
+        for header_table, values_table in empty_tables:
             self.handle_table_operations(header_table, values_table, doc_id)
             
         self.show_navigation_controls(doc_id)
