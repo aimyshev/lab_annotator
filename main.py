@@ -56,6 +56,7 @@ class LabAnalysisUI:
         
     def cleanup_session_state(self):
         st.session_state.current_doc_id = None
+        st.session_state.document_text = None
         for table_key in [f"table_data_{table}" for table in self.ANALYSIS_TABLES]:
             st.session_state[table_key] = None
 
@@ -255,6 +256,8 @@ class LabAnalysisUI:
             
             doc_id, document_body = document
             st.session_state.current_doc_id = doc_id
+            st.session_state.document_text = document_body
+
             return doc_id, document_body
             
         except Exception as e:
@@ -349,6 +352,7 @@ class LabAnalysisUI:
 
         with cols[1]:
             if st.button("⏭️ Next Document", use_container_width=True):
+                logger.info("Moving to next document from doc_id: %s", doc_id)
                 self.cleanup_session_state()
                 st.success("Moving to next document...")
                 st.session_state.current_doc_id = None
