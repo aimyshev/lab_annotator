@@ -46,6 +46,7 @@ class LabAnalysisUI:
     def _initialize_session_state(self):
         defaults = {
             'current_doc_id': None,
+            'current_document_text': None,
             'username': "",
             **{f"table_data_{table}": None for table in self.ANALYSIS_TABLES}
         }
@@ -56,7 +57,7 @@ class LabAnalysisUI:
         
     def cleanup_session_state(self):
         st.session_state.current_doc_id = None
-        st.session_state.document_text = None
+        st.session_state.current_document_text = None
         for table_key in [f"table_data_{table}" for table in self.ANALYSIS_TABLES]:
             st.session_state[table_key] = None
 
@@ -246,7 +247,7 @@ class LabAnalysisUI:
     def fetch_document(self) -> Optional[Tuple[str, str]]:
 
         if st.session_state.current_doc_id is not None:
-            return st.session_state.current_doc_id, st.session_state.document_text
+            return st.session_state.current_doc_id, st.session_state.current_document_text
 
         try:
             document = self.annotation_manager.fetch_unannotated_doc()
@@ -256,7 +257,7 @@ class LabAnalysisUI:
             
             doc_id, document_body = document
             st.session_state.current_doc_id = doc_id
-            st.session_state.document_text = document_body
+            st.session_state.current_document_text = document_body
 
             return doc_id, document_body
             
@@ -273,7 +274,7 @@ class LabAnalysisUI:
                 value=document_body,
                 height=500,
                 disabled=True,
-                key="document_text"
+                key="document_text_widget"
             )
 
     @st.fragment
