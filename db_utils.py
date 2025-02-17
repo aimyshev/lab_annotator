@@ -79,6 +79,7 @@ class AnnotationManager:
                         LEFT JOIN public.annotations a ON d.doc_id = a.doc_id
                         WHERE a.doc_id IS NULL
                         LIMIT 1
+                        FOR UPDATE SKIP LOCKED
                     )
                     INSERT INTO public.annotations (doc_id, status, time)
                     SELECT doc_id, :status, :time

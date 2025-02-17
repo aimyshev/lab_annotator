@@ -56,10 +56,10 @@ class LabAnalysisUI:
                 st.session_state[key] = default
         
     def cleanup_session_state(self):
-        st.session_state.current_doc_id = None
-        st.session_state.current_document_text = None
+        del st.session_state.current_doc_id
+        del st.session_state.current_document_text
         for table_key in [f"table_data_{table}" for table in self.ANALYSIS_TABLES]:
-            st.session_state[table_key] = None
+            del st.session_state[table_key]
 
     def _load_table_schemas(self):
         with self.db_manager.transaction() as conn:
@@ -350,7 +350,6 @@ class LabAnalysisUI:
                 self.annotation_manager.save_annotation(doc_id, username)
                 self.cleanup_session_state()
                 st.success("Annotation saved successfully!")
-                st.session_state.current_doc_id = None
                 st.rerun()
 
         with cols[1]:
@@ -358,7 +357,6 @@ class LabAnalysisUI:
                 logger.info("Moving to next document from doc_id: %s", doc_id)
                 self.cleanup_session_state()
                 st.success("Moving to next document...")
-                st.session_state.current_doc_id = None
                 st.rerun()
 
     def run(self):
