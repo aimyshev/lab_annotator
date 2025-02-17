@@ -343,9 +343,11 @@ class LabAnalysisUI:
         """Display navigation and control buttons"""
         st.markdown("---")
         cols = st.columns([1, 1])
-        
+        username = st.session_state.username
+
         with cols[0]:
             if st.button("Save Annotation"):
+                self.annotation_manager.save_annotation(doc_id, username)
                 self.cleanup_session_state()
                 st.success("Annotation saved successfully!")
                 st.session_state.current_doc_id = None
