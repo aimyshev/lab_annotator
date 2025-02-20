@@ -74,12 +74,17 @@ class AnnotationManager:
                 # Fetch unannotated document
                 select_query = text("""
                     WITH next_doc AS (
-                        SELECT d.doc_id, d.body
-                        FROM public.documents d
-                        LEFT JOIN public.annotations a ON d.doc_id = a.doc_id
-                        WHERE a.doc_id IS NULL
-                        LIMIT 1
-                        FOR UPDATE SKIP LOCKED
+                        SELECT doc_id, body
+                        FROM (
+                            SELECT d.doc_id, d.body
+                            FROM public.documents d
+                            WHERE NOT EXISTS (
+                                SELECT 1 FROM public.annotations a WHERE d.doc_id = a.doc_id
+                            )
+                            ORDER BY d.doc_id
+                            LIMIT 1
+                            FOR UPDATE SKIP LOCKED
+                        ) subquery
                     )
                     INSERT INTO public.annotations (doc_id, status, time)
                     SELECT doc_id, :status, :time
