@@ -157,7 +157,34 @@ class AnnotationManager:
         except Exception as e:
             logger.error(f"Error saving annotated document: {str(e)}")
             raise
-
+        
+    def mark_document_in_process(self, doc_id, username):
+        """Mark document as being processed"""
+        with self.db_manager.transaction() as conn:
+            # Check if annotation already exists
+            check_query = text("""
+                SELECT id FROM public.annotations
+                WHERE doc_id = :doc_id AND username = :username
+            """)
+            
+            existing = conn.execute(check_query, {
+                "doc_id": doc_id,
+                "username": username
+            }).scalar()
+            
+            if not existing:
+                # Create new annotation record as in_process
+                insert_query = text("""
+                    INSERT INTO public.annotations (doc_id, username, status, save_time)
+                    VALUES (:doc_id, :username, 'in_process', :save_time)
+                """)
+                
+                conn.execute(insert_query, {
+                    "doc_id": doc_id,
+                    "username": username,
+                    "save_time": datetime.now().isoformat()
+                })
+                
 class DataManager:
     def __init__(self, db_manager):
         self.db_manager = db_manager
@@ -185,7 +212,7 @@ class DataManager:
                 values_df = pd.read_sql_query(values_query, conn, params={"test_id": test_id})
 
             return header_df, values_df
-
+    
     def check_db_structure(self):
         with self.db_manager.transaction() as conn:
             cursor = conn.cursor()

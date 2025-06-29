@@ -363,6 +363,7 @@ class LabAnalysisUI:
         with cols[1]:
             if st.button("⏭️ Next Document", use_container_width=True):
                 logger.info("Moving to next document from doc_id: %s", doc_id)
+                self.annotation_manager.mark_document_as_skipped(doc_id, username)
                 self.cleanup_session_state()
                 st.success("Moving to next document...")
                 st.rerun()
