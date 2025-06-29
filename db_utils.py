@@ -171,7 +171,7 @@ class DataManager:
                 WHERE doc_id = :doc_id AND
                 annotation_source = :annotation_source
             """)
-            header_df = pd.read_sql_query(header_query, conn, params={"doc_id": doc_id, "annotation_source": "ground_truth"})
+            header_df = pd.read_sql_query(header_query, conn, params={"doc_id": doc_id, "annotation_source": "gpt"})
 
             # Fetch values data if header exists
             values_df = pd.DataFrame()
