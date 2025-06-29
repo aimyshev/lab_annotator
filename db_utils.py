@@ -4,7 +4,7 @@ from sqlalchemy import create_engine, text
 import pandas as pd
 from datetime import datetime, timedelta
 import logging
-from constants import STATUS_COMPLETED, STATUS_IN_PROCESS, EXPIRED_ANNOTATION_THRESHOLD
+from constants import STATUS_COMPLETED, STATUS_IN_PROCESS, STATUS_CHECKED, EXPIRED_ANNOTATION_THRESHOLD
 from typing import List, Optional, Dict, Tuple
 from contextlib import contextmanager
 
@@ -102,6 +102,22 @@ class AnnotationManager:
             logger.error(f"Error fetching unannotated document: {str(e)}")
             raise
 
+    def fetch_annotated_doc(self):
+        try:
+            with self.db_manager.transaction() as conn:
+                select_query = text("""
+                    SELECT a.doc_id, d.body
+                    FROM public.annotations a
+                    JOIN public.documents d ON d.doc_id = a.doc_id
+                    WHERE a.status = :status
+                    LIMIT 1
+                """)
+                result = conn.execute(select_query, {"status": STATUS_COMPLETED})
+                return result.fetchone()
+        except Exception as e:
+            logger.error(f"Error fetching annotated document: {str(e)}")
+            raise
+
     def save_annotation(self, doc_id, username):
         with self.db_manager.transaction() as conn:
 
@@ -121,6 +137,26 @@ class AnnotationManager:
                 "doc_id": doc_id, 
                 "old_status": STATUS_IN_PROCESS
             })
+    
+    def save_annotated_doc(self, doc_id, username):
+        try:
+            with self.db_manager.transaction() as conn:
+                update_query = text("""
+                    UPDATE public.annotations
+                    SET status = :status,
+                        username = :username, 
+                        save_time = :save_time
+                    WHERE doc_id = :doc_id
+                """)
+                conn.execute(update_query, {
+                    "doc_id": doc_id,
+                    "status": STATUS_CHECKED,
+                    "save_time": datetime.now().isoformat(),
+                    "username": username
+                })
+        except Exception as e:
+            logger.error(f"Error saving annotated document: {str(e)}")
+            raise
 
 class DataManager:
     def __init__(self, db_manager):
@@ -132,9 +168,10 @@ class DataManager:
             # Fetch header data
             header_query = text(f"""
                 SELECT * FROM public.{header_table} 
-                WHERE doc_id = :doc_id
+                WHERE doc_id = :doc_id AND
+                annotation_source = :annotation_source
             """)
-            header_df = pd.read_sql_query(header_query, conn, params={"doc_id": doc_id})
+            header_df = pd.read_sql_query(header_query, conn, params={"doc_id": doc_id, "annotation_source": "ground_truth"})
 
             # Fetch values data if header exists
             values_df = pd.DataFrame()

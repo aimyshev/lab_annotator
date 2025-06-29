@@ -25,4 +25,5 @@ DOSAGE_UNITS = ['mg', 'g', 'mcg', 'mL', 'L', 'IU', 'mmol', 'mEq', '%', 'NA']
 DB_PATH = 'stroke_drugs.db'
 STATUS_IN_PROCESS = 'in process'
 STATUS_COMPLETED = 'completed'
+STATUS_CHECKED = 'checked'
 EXPIRED_ANNOTATION_THRESHOLD = 30

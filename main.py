@@ -20,13 +20,14 @@ class LabAnalysisUI:
         "alcohol_test": "alcohol_test_values",
         "biochem_blood_test": "biochem_blood_test_values",
         "blood_electrolytes": "blood_electrolytes_values",
-        "blood_sugar": "blood_sugar_values",
+        "blood_sugar_test": "blood_sugar_test_values",
         "blood_test": "blood_test_values",
         "blood_type": "blood_type_values",
         "cerebrospinal_fluid_analysis": "cerebrospinal_fluid_analysis_values",
         "coagulogram": "coagulogram_values",
         "fecal_analysis": "fecal_analysis_values",
         "hematocrit": "hematocrit_values",
+        "hepatitis_markers": "hepatitis_markers_values",
         "hiv_test": "hiv_test_values",
         "malaria_test": "malaria_test_values",
         "sputum_analysis": "sputum_analysis_values",
@@ -148,66 +149,73 @@ class LabAnalysisUI:
     def save_table_data(self, header_table: str, values_table: str, combined_df: pd.DataFrame, doc_id: str):
         """Save the combined data, ensuring ground truth is saved first and then updates are allowed."""
         
-        header_df, values_df = self.split_combined_data(combined_df)
+        grouped = combined_df.groupby(['test_date', 'analysis_order'])
 
         with self.db_manager.transaction() as conn:
-            # Check for an existing "ground truth" annotation
-            check_gt_query = text(f"""
-                SELECT id FROM {header_table} 
-                WHERE doc_id = :doc_id AND annotation_source = 'ground_truth'
-            """)
-            existing_gt_header = conn.execute(check_gt_query, {"doc_id": doc_id}).scalar()
-
-            # Check for an existing "GPT" annotation
-            check_gpt_query = text(f"""
-                SELECT id FROM {header_table} 
-                WHERE doc_id = :doc_id AND annotation_source = 'gpt'
-            """)
-            existing_gpt_header = conn.execute(check_gpt_query, {"doc_id": doc_id}).scalar()
-
-            if not existing_gt_header:
-                # No ground truth exists, so insert new GT annotation
-                header_df_to_save = header_df.copy()
-                header_df_to_save['doc_id'] = doc_id
-                header_df_to_save['annotation_source'] = "ground_truth"
-
-                header_columns = ['doc_id', 'test_date', 'analysis_order', 'annotation_source']
-                insert_header_query = f"""
-                    INSERT INTO {header_table} ({', '.join(header_columns)})
-                    VALUES ({', '.join([f':{col}' for col in header_columns])})
-                    RETURNING id
-                """
-                result = conn.execute(text(insert_header_query), header_df_to_save.to_dict('records'))
-                test_id = int(result.scalar())  # Get newly inserted test ID
-            else:
-                # Ground truth exists, update instead of inserting
-                test_id = existing_gt_header
-                update_header_query = text(f"""
-                    UPDATE {header_table}
-                    SET test_date = :test_date, analysis_order = :analysis_order
-                    WHERE id = :test_id
-                """)
-                conn.execute(update_header_query, {
-                    "test_date": header_df['test_date'].iloc[0],
-                    "analysis_order": int(header_df['analysis_order'].iloc[0]),
-                    "test_id": test_id
+            for (test_date, analysis_order), group_df in grouped:
+                header_df = pd.DataFrame({
+                    'test_date': [test_date],
+                    'analysis_order': [analysis_order]
                 })
 
-            # Ensure that values are always updated for GT annotation
-            delete_values_query = text(f"DELETE FROM {values_table} WHERE test_id = :test_id")
-            conn.execute(delete_values_query, {"test_id": test_id})
+                values_df = group_df[['parameter_name', 'value', 'unit']].copy()
 
-            # Insert new values
-            if not values_df.empty:
-                values_df_to_save = values_df.copy()
-                values_df_to_save['test_id'] = test_id  # Associate with the correct test ID
+                check_gt_query = text(f"""
+                    SELECT id FROM {header_table} 
+                    WHERE doc_id = :doc_id 
+                    AND annotation_source = 'ground_truth'
+                    AND test_date = :test_date
+                    AND analysis_order = :analysis_order
+                """)
+                existing_gt_header = conn.execute(check_gt_query, {
+                    "doc_id": doc_id,
+                    "test_date": test_date,
+                    "analysis_order": int(analysis_order)
+                }).scalar()
 
-                values_columns = ['test_id', 'parameter_name', 'value', 'unit']
-                insert_values_query = f"""
-                    INSERT INTO {values_table} ({', '.join(values_columns)})
-                    VALUES ({', '.join([f':{col}' for col in values_columns])})
-                """
-                conn.execute(text(insert_values_query), values_df_to_save.to_dict('records'))
+                if not existing_gt_header:
+                    # No ground truth exists, so insert new GT annotation
+                    header_df_to_save = header_df.copy()
+                    header_df_to_save['doc_id'] = doc_id
+                    header_df_to_save['annotation_source'] = "ground_truth"
+
+                    header_columns = ['doc_id', 'test_date', 'analysis_order', 'annotation_source']
+                    insert_header_query = f"""
+                        INSERT INTO {header_table} ({', '.join(header_columns)})
+                        VALUES ({', '.join([f':{col}' for col in header_columns])})
+                        RETURNING id
+                    """
+                    result = conn.execute(text(insert_header_query), header_df_to_save.to_dict('records')[0])
+                    test_id = int(result.scalar())  # Get newly inserted test ID
+                else:
+                    # Ground truth exists, update instead of inserting
+                    test_id = existing_gt_header
+                    update_header_query = text(f"""
+                        UPDATE {header_table}
+                        SET test_date = :test_date, analysis_order = :analysis_order
+                        WHERE id = :test_id
+                    """)
+                    conn.execute(update_header_query, {
+                        "test_date": header_df['test_date'].iloc[0],
+                        "analysis_order": int(header_df['analysis_order'].iloc[0]),
+                        "test_id": test_id
+                    })
+
+                # Ensure that values are always updated for GT annotation
+                delete_values_query = text(f"DELETE FROM {values_table} WHERE test_id = :test_id")
+                conn.execute(delete_values_query, {"test_id": test_id})
+
+                # Insert new values
+                if not values_df.empty:
+                    values_df_to_save = values_df.copy()
+                    values_df_to_save['test_id'] = test_id  # Associate with the correct test ID
+
+                    values_columns = ['test_id', 'parameter_name', 'value', 'unit']
+                    insert_values_query = f"""
+                        INSERT INTO {values_table} ({', '.join(values_columns)})
+                        VALUES ({', '.join([f':{col}' for col in values_columns])})
+                    """
+                    conn.execute(text(insert_values_query), values_df_to_save.to_dict('records'))
 
 
     def setup_page(self):
@@ -250,7 +258,7 @@ class LabAnalysisUI:
             return st.session_state.current_doc_id, st.session_state.current_document_text
 
         try:
-            document = self.annotation_manager.fetch_unannotated_doc()
+            document = self.annotation_manager.fetch_annotated_doc()
             if not document:
                 st.warning("📝 No documents available for annotation.")
                 return None
@@ -347,7 +355,7 @@ class LabAnalysisUI:
 
         with cols[0]:
             if st.button("Save Annotation"):
-                self.annotation_manager.save_annotation(doc_id, username)
+                self.annotation_manager.save_annotated_doc(doc_id, username)
                 self.cleanup_session_state()
                 st.success("Annotation saved successfully!")
                 st.rerun()
