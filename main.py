@@ -258,7 +258,7 @@ class LabAnalysisUI:
             return st.session_state.current_doc_id, st.session_state.current_document_text
 
         try:
-            document = self.annotation_manager.fetch_annotated_doc()
+            document = self.annotation_manager.fetch_unannotated_doc()
             if not document:
                 st.warning("📝 No documents available for annotation.")
                 return None
@@ -355,7 +355,7 @@ class LabAnalysisUI:
 
         with cols[0]:
             if st.button("Save Annotation"):
-                self.annotation_manager.save_annotated_doc(doc_id, username)
+                self.annotation_manager.save_annotation(doc_id, username)
                 self.cleanup_session_state()
                 st.success("Annotation saved successfully!")
                 st.rerun()
